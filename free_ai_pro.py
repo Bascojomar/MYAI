@@ -5,7 +5,7 @@ import json
 import os
 
 try:
-    GROQ_API_KEY = st.secrets["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"]
+    GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
 except:
     # Ito ay para gumana pa rin sa computer mo (Local) habang nagte-test ka
     GROQ_API_KEY = "IPASTE_MO_DITO_ANG_KEY_PARA_SA_LOCAL_TESTING"
@@ -26,20 +26,17 @@ def get_chats_in_folder(folder_name):
     files = [f for f in os.listdir(path) if f.endswith(".json")]
     return sorted(files)
 
-from st_gsheets_connection import GSheetsConnection
+def save_json(folder, filename, data):
+    path = os.path.join(BASE_DIR, folder, f"{filename}.json")
+    with open(path, "w") as f:
+        json.dump(data, f)
 
-# I-connect ang Google Sheets
-conn = st.connection("gsheets", type=GSheetsConnection)
-
-def save_to_google_sheets(folder, chat_id, message):
-    # Dito natin isusulat ang code para i-append ang message 
-    # sa isang row sa Google Sheets sa halip na sa folder.
-    pass
-
-def load_from_google_sheets():
-    # Dito natin babasahin ang lahat ng messages mula sa Google Sheets
-    # at i-oorganize sila bilang folders sa sidebar.
-    return conn.read()
+def load_json(folder, filename):
+    path = os.path.join(BASE_DIR, folder, f"{filename}.json")
+    if os.path.exists(path):
+        with open(path, "r") as f:
+            return json.load(f)
+    return None
 
 if "sel_folder" not in st.session_state:
     st.session_state.sel_folder = None
