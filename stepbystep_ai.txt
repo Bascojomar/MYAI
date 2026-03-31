@@ -2,6 +2,7 @@ install python
 python.org
 
 https://chat-pro.streamlit.app/
+https://share.streamlit.io/
 
 Step 1: Get Your Free Key
 Go to console.groq.com.
