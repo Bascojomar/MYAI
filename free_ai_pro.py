@@ -1,126 +1,63 @@
 import streamlit as st
 from groq import Groq
-import uuid
-import json
-import os
+import pandas as pd
+from datetime import datetime
 
-try:
-    GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
-except:
-    # Ito ay para gumana pa rin sa computer mo (Local) habang nagte-test ka
-    GROQ_API_KEY = "IPASTE_MO_DITO_ANG_KEY_PARA_SA_LOCAL_TESTING"
-    
-BASE_DIR = "my_workspace"
+# --- CONFIG ---
+st.set_page_config(page_title="Chat Pro - Permanent", layout="wide")
 
+# Kunin ang Google Sheet ID mula sa URL mo
+# Halimbawa: https://docs.google.com/spreadsheets/d/1abc123/edit -> Ang ID ay '1abc123'
+SHEET_ID = "ILAGAY_DITO_ANG_SHEET_ID_MO" 
+SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-st.set_page_config(page_title="AI Folder Tree", page_icon="🗂️", layout="wide")
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-if not os.path.exists(BASE_DIR):
-    os.makedirs(BASE_DIR)
+# --- FUNCTIONS ---
+def load_data():
+    try:
+        # Nagbabasa ng CSV format mula sa Google Sheet (Dapat Public ang "Anyone with link can view")
+        df = pd.read_csv(SHEET_URL)
+        return df
+    except:
+        return pd.DataFrame(columns=["folder_name", "role", "content", "timestamp"])
 
-def get_all_folders():
-    return sorted([f for f in os.listdir(BASE_DIR) if os.path.isdir(os.path.join(BASE_DIR, f))])
+# Dahil mahirap mag-SAVE sa Google Sheets nang walang API key, 
+# Pansamantala nating gamitin ang 'st.session_state' para sa folders
+# PERO, kung gusto mo talagang mag-save, kailangan natin ng Google Service Account JSON.
+if "folders" not in st.session_state:
+    st.session_state.folders = {}
 
-def get_chats_in_folder(folder_name):
-    path = os.path.join(BASE_DIR, folder_name)
-    files = [f for f in os.listdir(path) if f.endswith(".json")]
-    return sorted(files)
+# --- SIDEBAR ---
+st.sidebar.title("📁 Workspaces")
+new_f = st.sidebar.text_input("New Folder:")
+if st.sidebar.button("Create") and new_f:
+    st.session_state.folders[new_f] = []
 
-def save_json(folder, filename, data):
-    path = os.path.join(BASE_DIR, folder, f"{filename}.json")
-    with open(path, "w") as f:
-        json.dump(data, f)
+selected = st.sidebar.selectbox("Select:", ["---"] + list(st.session_state.folders.keys()))
 
-def load_json(folder, filename):
-    path = os.path.join(BASE_DIR, folder, f"{filename}.json")
-    if os.path.exists(path):
-        with open(path, "r") as f:
-            return json.load(f)
-    return None
+# --- MAIN ---
+st.title("🤖 AI Workspace")
 
-if "sel_folder" not in st.session_state:
-    st.session_state.sel_folder = None
-if "sel_chat_id" not in st.session_state:
-    st.session_state.sel_chat_id = None
+if selected != "---":
+    # Dito lalabas ang mga chat
+    for chat in st.session_state.folders[selected]:
+        with st.chat_message(chat["role"]):
+            st.markdown(chat["content"])
 
-with st.sidebar:
-    st.title("🗂️ AI Explorer")
-    
-    new_folder = st.text_input("📁 New Folder Name:", key="new_f")
-    if st.button("Create Folder", use_container_width=True):
-        if new_folder:
-            os.makedirs(os.path.join(BASE_DIR, new_folder), exist_ok=True)
-            st.rerun()
-
-    st.markdown("---")
-
-    folders = get_all_folders()
-    if not folders:
-        st.info("No folders yet. Create one above!")
-    
-    for folder in folders:
-        with st.expander(f"📁 **{folder.upper()}**", expanded=(st.session_state.sel_folder == folder)):
-            
-            if st.button(f"➕ New Chat in {folder}", key=f"btn_new_{folder}", use_container_width=True):
-                chat_id = str(uuid.uuid4())
-                chat_count = len(get_chats_in_folder(folder)) + 1
-                new_data = {"title": f"Chat {chat_count}", "messages": []}
-                save_json(folder, chat_id, new_data)
-                st.session_state.sel_folder = folder
-                st.session_state.sel_chat_id = chat_id
-                st.rerun()
-
-            chat_files = get_chats_in_folder(folder)
-            for cf in chat_files:
-                cid = cf.replace(".json", "")
-                cdata = load_json(folder, cid)
-                
-                is_active = (st.session_state.sel_chat_id == cid and st.session_state.sel_folder == folder)
-                label = f"{'⭐ ' if is_active else '📄 '}{cdata['title']}"
-                
-                if st.button(label, key=f"chat_{folder}_{cid}", use_container_width=True):
-                    st.session_state.sel_folder = folder
-                    st.session_state.sel_chat_id = cid
-                    st.rerun()
-
-if st.session_state.sel_folder and st.session_state.sel_chat_id:
-    current_chat = load_json(st.session_state.sel_folder, st.session_state.sel_chat_id)
-    
-    st.title(f"💬 {current_chat['title']}")
-    st.caption(f"Path: {st.session_state.sel_folder} / {current_chat['title']}")
-
-    for msg in current_chat["messages"]:
-        with st.chat_message(msg["role"]):
-            st.write(msg["content"])
-
-    if prompt := st.chat_input("Type your message..."):
-        current_chat["messages"].append({"role": "user", "content": prompt})
+    if prompt := st.chat_input("Chat here..."):
+        st.session_state.folders[selected].append({"role": "user", "content": prompt})
         with st.chat_message("user"):
-            st.write(prompt)
-
-        try:
-            client = Groq(api_key=GROQ_API_KEY)
-            with st.chat_message("assistant"):
-                box = st.empty()
-                full_text = ""
-                history = [{"role": "system", "content": "You are a helpful assistant."}] + current_chat["messages"]
-                
-                stream = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=history,
-                    stream=True
-                )
-                for chunk in stream:
-                    content = chunk.choices[0].delta.content
-                    if content:
-                        full_text += content
-                        box.markdown(full_text + "▌")
-                box.markdown(full_text)
-
-            current_chat["messages"].append({"role": "assistant", "content": full_text})
-            save_json(st.session_state.sel_folder, st.session_state.sel_chat_id, current_chat)
-        except Exception as e:
-            st.error(f"Error: {str(e)}")
+            st.markdown(prompt)
+        
+        # AI Response
+        completion = client.chat.completions.create(
+            model="llama3-8b-8192",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        res = completion.choices[0].message.content
+        st.session_state.folders[selected].append({"role": "assistant", "content": res})
+        with st.chat_message("assistant"):
+            st.markdown(res)
 else:
-    st.title("My Personal AI Workspace")
-    st.write("👈 In the right sidebar, select a folder to view its chats.")
+    st.info("Pumili ng folder.")
