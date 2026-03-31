@@ -1,6 +1,13 @@
 install python
 python.org
 
+Step 1: Get Your Free Key
+Go to console.groq.com.
+
+Sign in (it takes 10 seconds with Google).
+
+Click API Keys on the left and create one. It is free.
+
 Kung ayaw mo nang mag-reinstall, subukan mo itong command na ito sa PowerShell (copy and paste):
 python -m ensurepip --default-pip
 
