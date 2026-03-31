@@ -4,7 +4,12 @@ import uuid
 import json
 import os
 
-GROQ_API_KEY = st.secrets["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"]
+try:
+    GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
+except:
+    # Ito ay para gumana pa rin sa computer mo (Local) habang nagte-test ka
+    GROQ_API_KEY = "IPASTE_MO_DITO_ANG_KEY_PARA_SA_LOCAL_TESTING"
+    
 BASE_DIR = "my_workspace"
 
 
