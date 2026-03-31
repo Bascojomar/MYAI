@@ -4,7 +4,7 @@ import uuid
 import json
 import os
 
-GROQ_API_KEY = "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"
+GROQ_API_KEY = st.secrets["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"]
 BASE_DIR = "my_workspace"
 
 
