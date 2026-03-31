@@ -1,0 +1,31 @@
+install python
+python.org
+
+Kung ayaw mo nang mag-reinstall, subukan mo itong command na ito sa PowerShell (copy and paste):
+python -m ensurepip --default-pip
+
+shortcut
+- py -m pip install groq streamlit
+- python.exe -m pip install groq streamlit
+
+-pip --version
+
+1. I-install ang mga kailangan (Libraries)
+Siguraduhin na nasa loob ka ng folder mo (C:\Users\Jomar_B\Desktop\MYAI). I-copy at i-paste ito:
+-& "C:\Users\Jomar_B\AppData\Local\Python\pythoncore-3.14-64\python.exe" -m pip install groq streamlit
+
+
+2. Paano i-run ang iyong AI
+Ito ang command para buksan ang iyong Chatbot sa browser:
+- & "C:\Users\Jomar_B\AppData\Local\Python\pythoncore-3.14-64\python.exe" -m streamlit run free_ai_pro.py
+
+Step-by-Step Summary (Para hindi maligaw):
+Open PowerShell.
+
+Punta sa folder: cd C:\Users\Jomar_B\Desktop\MYAI
+
+Run the command: Gamitin yung mahabang command sa taas (Step 2).
+
+Browser: May magbubukas na tab sa Chrome/Edge.
+
+Enjoy: Dahil hardcoded na ang API Key mo (kung nailagay mo na sa code), pwede ka na agad mag-chat!
