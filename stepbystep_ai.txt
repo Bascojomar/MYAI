@@ -23,6 +23,7 @@ Step-by-Step Summary (Para hindi maligaw):
 Open PowerShell.
 
 Punta sa folder: cd C:\Users\Jomar_B\Desktop\MYAI
+run : streamlit run free_ai_pro.py
 
 Run the command: Gamitin yung mahabang command sa taas (Step 2).
 
