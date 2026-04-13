@@ -8,16 +8,16 @@ st.set_page_config(page_title="Jomar AI Workspace", layout="wide", page_icon="�
 # --- AUTHENTICATION ---
 def init_client():
     try:
-        # Kinukuha ang key mula sa Streamlit Cloud Settings > Secrets
+        # Retrieves key from Streamlit Cloud Settings > Secrets
         return Groq(api_key=st.secrets["GROQ_API_KEY"])
     except Exception as e:
-        st.error("⚠️ API Key Error: Pakisiguradong tama ang 'GROQ_API_KEY' sa iyong Secrets.")
+        st.error("⚠️ API Key Error: Please ensure 'GROQ_API_KEY' is correctly set in your Secrets.")
         st.stop()
 
 client = init_client()
 
 # --- STATE MANAGEMENT ---
-# Dito itatabi ang usapan habang naka-open ang app
+# Stores chats during the active session
 if "workspaces" not in st.session_state:
     st.session_state.workspaces = {"General": []}
 if "current_workspace" not in st.session_state:
@@ -53,23 +53,23 @@ with st.sidebar:
 st.title(f"🚀 Workspace: {st.session_state.current_workspace}")
 st.caption("Using Llama 3.1-8B Instant via Groq Cloud")
 
-# Display Chat History para sa napiling workspace
+# Display Chat History for the selected workspace
 current_history = st.session_state.workspaces[st.session_state.current_workspace]
 for chat in current_history:
     with st.chat_message(chat["role"]):
         st.markdown(chat["content"])
 
 # Chat Input
-if prompt := st.chat_input("Ano ang maitutulong ko sa iyo?"):
-    # 1. I-save at I-display ang message ng User
+if prompt := st.chat_input("How can I help you today?"):
+    # 1. Save and Display User message
     current_history.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # 2. Tawagin ang AI (Groq API)
+    # 2. Call the AI (Groq API)
     try:
         with st.chat_message("assistant"):
-            # Gamitin ang Llama 3.1 (Ang model na HINDI decommissioned)
+            # Using Llama 3.1 (The active, supported model)
             completion = client.chat.completions.create(
                 model="llama-3.1-8b-instant",
                 messages=[{"role": m["role"], "content": m["content"]} for m in current_history],
@@ -80,11 +80,11 @@ if prompt := st.chat_input("Ano ang maitutulong ko sa iyo?"):
             full_response = completion.choices[0].message.content
             st.markdown(full_response)
             
-        # 3. I-save ang sagot ng AI sa history
+        # 3. Save AI response to history
         current_history.append({"role": "assistant", "content": full_response})
         
     except Exception as e:
         if "model_decommissioned" in str(e):
-            st.error("❌ Error: Ang model ay tinanggal na ni Groq. Paki-update ang code sa Llama-3.1.")
+            st.error("❌ Error: The model was decommissioned by Groq. Please update the code to Llama-3.1.")
         else:
             st.error(f"❌ Error: {str(e)}")
