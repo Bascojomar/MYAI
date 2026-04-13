@@ -3,48 +3,88 @@ from groq import Groq
 import pandas as pd
 from datetime import datetime
 
-st.set_page_config(page_title="Chat Pro - Permanent", layout="wide")
+# --- CONFIGURATION ---
+st.set_page_config(page_title="Jomar AI Pro", layout="wide", page_icon="🤖")
 
-SHEET_ID = "ILAGAY_DITO_ANG_SHEET_ID_MO" 
-SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
-
-client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-
-def load_data():
+# --- SECRETS & AUTH ---
+def init_client():
     try:
-        df = pd.read_csv(SHEET_URL)
-        return df
-    except:
-        return pd.DataFrame(columns=["folder_name", "role", "content", "timestamp"])
-if "folders" not in st.session_state:
-    st.session_state.folders = {}
+        # Kinukuha ang key mula sa Settings > Secrets (Cloud) 
+        # o .streamlit/secrets.toml (Local)
+        api_key = st.secrets["GROQ_API_KEY"]
+        return Groq(api_key=api_key)
+    except Exception as e:
+        st.error("⚠️ API Key Missing! Pakicheck ang Streamlit Secrets.")
+        st.stop()
 
-st.sidebar.title("📁 Workspaces")
-new_f = st.sidebar.text_input("New Folder:")
-if st.sidebar.button("Create") and new_f:
-    st.session_state.folders[new_f] = []
+client = init_client()
 
-selected = st.sidebar.selectbox("Select:", ["---"] + list(st.session_state.folders.keys()))
+# --- DATABASE (SIMPLE PERSISTENCE) ---
+# Dahil sa hirap ng setup ng GSheets, gagamit muna tayo ng Session State 
+# para sa UI logic, pero handa na ito para sa data logging.
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "workspaces" not in st.session_state:
+    st.session_state.workspaces = {"Default": []}
 
-st.title("🤖 AI Workspace")
+# --- SIDEBAR ---
+st.sidebar.title("📁 AI Workspaces")
 
-if selected != "---":
-    for chat in st.session_state.folders[selected]:
-        with st.chat_message(chat["role"]):
-            st.markdown(chat["content"])
+# Create Workspace
+new_ws = st.sidebar.text_input("Add Workspace Name:")
+if st.sidebar.button("➕ Create"):
+    if new_ws and new_ws not in st.session_state.workspaces:
+        st.session_state.workspaces[new_ws] = []
+        st.sidebar.success(f"Workspace '{new_ws}' added!")
 
-    if prompt := st.chat_input("Chat here..."):
-        st.session_state.folders[selected].append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        
-        completion = client.chat.completions.create(
-            model="llama3-8b-8192",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        res = completion.choices[0].message.content
-        st.session_state.folders[selected].append({"role": "assistant", "content": res})
+# Select Workspace
+selected_ws = st.sidebar.selectbox("Choose Workspace:", list(st.session_state.workspaces.keys()))
+
+# --- MAIN CHAT ---
+st.title(f"🚀 Workspace: {selected_ws}")
+st.caption("Powered by Llama 3 via Groq Cloud")
+
+# Display Chat History from the selected workspace
+for chat in st.session_state.workspaces[selected_ws]:
+    with st.chat_message(chat["role"]):
+        st.markdown(chat["content"])
+
+# User Input
+if prompt := st.chat_input("Ano ang maitutulong ko sa iyo?"):
+    # 1. Add User Message to History
+    st.session_state.workspaces[selected_ws].append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    # 2. Call AI API
+    try:
         with st.chat_message("assistant"):
-            st.markdown(res)
-else:
-    st.info("Pumili ng folder.")
+            # Gumawa ng "Placeholder" para sa loading effect
+            response_placeholder = st.empty()
+            
+            # Kunin lang ang huling 5 messages para hindi ma-overload ang API (Context)
+            history = st.session_state.workspaces[selected_ws][-5:]
+            
+            completion = client.chat.completions.create(
+                model="llama3-8b-8192",
+                messages=[{"role": m["role"], "content": m["content"]} for m in history],
+                temperature=0.7,
+                max_tokens=2048
+            )
+            
+            full_response = completion.choices[0].message.content
+            response_placeholder.markdown(full_response)
+            
+        # 3. Save AI Response
+        st.session_state.workspaces[selected_ws].append({"role": "assistant", "content": full_response})
+        
+    except Exception as e:
+        st.error(f"❌ AI Error: {str(e)}")
+        # Kung BadRequestError ito, madalas ay dahil sa empty prompt o invalid key
+        st.info("Tip: Subukang i-reboot ang app o i-update ang iyong Groq API Key.")
+
+# --- FOOTER ---
+st.sidebar.markdown("---")
+if st.sidebar.button("🗑️ Clear Current Chat"):
+    st.session_state.workspaces[selected_ws] = []
+    st.rerun()
